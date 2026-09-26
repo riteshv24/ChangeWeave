@@ -1,0 +1,20 @@
+services:
+  changeweave:
+    build: .
+    ports:
+      - "127.0.0.1:4311:4311"
+    environment:
+      HOST: 0.0.0.0
+      PORT: "4311"
+      CHANGEWEAVE_DB: /app/data/changeweave.sqlite
+    volumes:
+      - changeweave-data:/app/data
+    init: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4311/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+volumes:
+  changeweave-data:

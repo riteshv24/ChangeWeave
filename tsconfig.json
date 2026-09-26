@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"ES2022","module":"NodeNext","moduleResolution":"NodeNext","allowJs":true,"checkJs":false,"noEmit":true,"strict":true},"include":["core/**/*.js","server/**/*.js","tests/**/*.js"]}

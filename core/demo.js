@@ -1,0 +1,36 @@
+const schema = (properties, required = Object.keys(properties)) => ({ type: 'object', additionalProperties: false, properties, required });
+const before = schema({ id: { type: 'string' }, priceCents: { type: 'integer', minimum: 0 }, currency: { type: 'string', enum: ['USD', 'EUR'] } });
+const after = schema({ id: { type: 'string' }, amountMinor: { type: 'integer', minimum: 0 }, currency: { type: 'string', enum: ['USD', 'EUR'] } });
+const api = (s) => ({ openapi: '3.0.3', info: { title: 'Catalog API', version: '1.0.0' }, paths: { '/products/{id}': { get: { responses: { '200': { description: 'Product', content: { 'application/json': { schema: { $ref: '#/components/schemas/Product' } } } } } } } }, components: { schemas: { Product: s } } });
+export function demoWorkspace() {
+  return {
+    id: 'commerce-contract-migration', name: 'Commerce API · price contract migration',
+    repositories: [
+      { id: 'catalog-api', name: 'Catalog API', dependencies: [], files: {
+        'src/contracts.ts': 'export interface Product {\n  id: string;\n  priceCents: number;\n  currency: "USD" | "EUR";\n}\n',
+        'src/catalog.ts': 'import type { Product } from "./contracts";\n\nexport function product(): Product {\n  return { id: "sku-1042", priceCents: 2499, currency: "USD" };\n}\n\n// This unrelated analytics field must retain its original name.\nexport const legacyMetric = { priceCents: 812 };\nexport const metricSample = legacyMetric.priceCents;\n'
+      } },
+      { id: 'storefront', name: 'Storefront', dependencies: ['catalog-api'], files: {
+        'src/cart.ts': 'import type { Product } from "../../catalog-api/src/contracts";\n\nexport function subtotal(product: Product, quantity: number): number {\n  return product.priceCents * quantity;\n}\n\nexport function displayPrice(product: Product): string {\n  return product["priceCents"] + " " + product.currency;\n}\n\nexport function localVariable(product: Product): number {\n  const { priceCents } = product;\n  return priceCents;\n}\n',
+        'src/analytics.ts': 'export interface AdBid { priceCents: number }\nexport function bidValue(bid: AdBid): number {\n  return bid.priceCents;\n}\n'
+      } },
+      { id: 'order-worker', name: 'Order Worker', dependencies: ['catalog-api', 'storefront'], files: {
+        'src/order.ts': 'import type { Product } from "../../catalog-api/src/contracts";\nimport { subtotal } from "../../storefront/src/cart";\n\nexport function charge(product: Product): number {\n  const { priceCents: unitPrice } = product;\n  return subtotal(product, 2) + unitPrice;\n}\n\nexport function createLine(priceCents: number): Product {\n  return { id: "sku-2048", priceCents, currency: "EUR" };\n}\n'
+      } },
+      { id: 'reporting-sdk', name: 'Reporting SDK', dependencies: ['catalog-api', 'order-worker'], files: {
+        'src/report.ts': 'import type { Product } from "../../catalog-api/src/contracts";\n\nexport function amount(product: Product): number {\n  return product.priceCents;\n}\n\n// Runtime field names require review, even though TypeScript accepts them.\nexport function externalPayload(raw: any): unknown {\n  return raw.priceCents;\n}\n'
+      } }
+    ],
+    contract: { before: api(before), after: api(after) },
+    recipes: [
+      { id: 'rename-price', label: 'Rename price field', kind: 'rename-property', description: 'Rename Product.priceCents to amountMinor without changing numeric units. Dynamic inputs remain explicitly unresolved.', from: 'priceCents', to: 'amountMinor', typeNames: ['Product'], targetRepository: 'catalog-api', targetFile: 'src/contracts.ts', schemaName: 'Product' },
+      { id: 'require-market', label: 'Require market code', kind: 'required-field', description: 'Require Product.market. Existing records have no market source, so a human must supply the business rule.', field: 'market', fieldSchema: { type: 'string', enum: ['US', 'EU'] }, schemaName: 'Product' },
+      { id: 'structured-price', label: 'Introduce structured price', kind: 'type-change', description: 'Change priceCents from an integer to an amount/currency object. Conversion and rounding rules require review.', field: 'priceCents', fieldSchema: schema({ amount: { type: 'number' }, currency: { type: 'string' } }), schemaName: 'Product' }
+    ],
+    fixtures: [
+      { name: 'USD product', before: { id: 'sku-1042', priceCents: 2499, currency: 'USD' }, after: { id: 'sku-1042', amountMinor: 2499, currency: 'USD' } },
+      { name: 'EUR product', before: { id: 'sku-2048', priceCents: 1590, currency: 'EUR' }, after: { id: 'sku-2048', amountMinor: 1590, currency: 'EUR' } },
+      { name: 'Zero-price product', before: { id: 'sku-free', priceCents: 0, currency: 'USD' }, after: { id: 'sku-free', amountMinor: 0, currency: 'USD' } }
+    ]
+  };
+}
