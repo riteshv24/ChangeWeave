@@ -1,0 +1,6 @@
+services:
+  app:
+    image: app-ci:${CI_IMAGE_TAG:?Run from CI or set a local test image tag}
+    ports: ['127.0.0.1:4311:4311']
+    environment:
+      NODE_ENV: production

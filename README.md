@@ -133,3 +133,7 @@ To enable review suggestions, set `CHANGEWEAVE_ENABLE_LLM=1`, `LLM_MODEL`, and `
 The roadmap targets a complete core followed by substantial integration and scale work. “70%” is a planning target for an agreed roadmap, not a claim that this repository represents a measured fraction of a production platform or any past development duration.
 
 MIT licensed. See [LICENSE](LICENSE).
+
+## Pull requests and releases
+
+Changes are checked by GitHub Actions before release. See [the release guide](docs/RELEASING.md) for PR checks, required repository settings, tested container images, and deployment setup.
